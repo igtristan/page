@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +23,11 @@ var placeholderPng []byte
 var placeholderJpg []byte
 
 func serve(po *processOptions, addr string) {
+
+	err2 := mime.AddExtensionType(".css", "text/css")
+	if err2 != nil {
+		log.Printf("Error in mime js %s", err2.Error())
+	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -53,13 +59,15 @@ func serve(po *processOptions, addr string) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			} else if err != nil && errors.Is(err, os.ErrNotExist) {
-				// TODO add in something to decide whether to make placeholders or not
-				if ext == ".gif" {
-					fileBytes = placeholderGif
-				} else if ext == ".jpg" || ext == ".jpeg" {
-					fileBytes = placeholderJpg
-				} else if ext == ".png" {
-					fileBytes = placeholderPng
+
+				if po.UsePlaceholderImages {
+					if ext == ".gif" {
+						fileBytes = placeholderGif
+					} else if ext == ".jpg" || ext == ".jpeg" {
+						fileBytes = placeholderJpg
+					} else if ext == ".png" {
+						fileBytes = placeholderPng
+					}
 				}
 
 				if fileBytes == nil || !po.UsePlaceholderImages {
@@ -74,11 +82,21 @@ func serve(po *processOptions, addr string) {
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/octet-stream")
+
+			mime.AddExtensionType(".css", "text/css; charset=utf-8")
+
+			log.Println("Serving " + uri + " extension: " + ext)
+			//w.WriteHeader(http.StatusOK)
+			if ext == ".css" {
+				w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			} else {
+				w.Header().Set("Content Type", "application/octet-stream")
+			}
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
+			w.Header().Write(log.Writer())
+			w.WriteHeader(http.StatusOK)
 			w.Write(fileBytes)
 
 		} else if ext == "" {
@@ -102,11 +120,12 @@ func serve(po *processOptions, addr string) {
 				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
 				return
 			}
-
-			w.WriteHeader(http.StatusOK)
+			
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
+			w.WriteHeader(http.StatusOK)
 			w.Write(out.Bytes())
 		}
 	})

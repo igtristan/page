@@ -190,7 +190,7 @@ type FileScope struct {
 
 func (s *FileScope) NextClass() string {
 	s.Sequence++
-	return fmt.Sprintf("ix%v", s.Sequence)
+	return fmt.Sprintf("p%v", s.Sequence)
 }
 
 func (s *FileScope) AddCss(nodeType string, class string, subkey string, v string) {

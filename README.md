@@ -4,18 +4,26 @@ Static site generator and html tedium eliminator.
 
 ## Compilation
 
-Requires go 1.18
-To build and install locally
+Download and build.  Assumes you're using brew on OSX.  Substitute for your favorite package manager or install go and git manually.
 
 ```
-brew install go
+brew install git go 
 git clone https://github.com/igtristan/page
-cd page
-go build
+go build .
+```
+
+At this point the "page" executable will be sitting inside the directory.
+Likely you'll want to install it globally on your machine.
+
+```
 go install
 ```
 
-## Usage
+The above command will place the executable into your $GOPATH/bin directory.
+Just make sure executables can be accessed from that path on your OS.
+
+see
+https://stackoverflow.com/questions/21001387/how-do-i-set-the-gopath-environment-variable-on-ubuntu-what-file-must-i-edit/53026674#53026674
 
 
 ### Self Hosted Server
