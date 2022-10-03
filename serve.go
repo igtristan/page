@@ -51,7 +51,8 @@ func serve(po *processOptions, addr string) {
 
 		ext := filepath.Ext(uri)
 
-		if ext != "" {
+		if ext == "" {
+		} else if ext != ".html" {
 			var fileBytes []byte
 			f, err := po.ResolvePath(uri)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -83,10 +84,9 @@ func serve(po *processOptions, addr string) {
 			}
 
 
-			mime.AddExtensionType(".css", "text/css; charset=utf-8")
+			//mime.AddExtensionType(".css", "text/css; charset=utf-8")
 
 			log.Println("Serving " + uri + " extension: " + ext)
-			//w.WriteHeader(http.StatusOK)
 			if ext == ".css" {
 				w.Header().Set("Content-Type", "text/css; charset=utf-8")
 			} else {
@@ -96,11 +96,11 @@ func serve(po *processOptions, addr string) {
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
 			w.Header().Write(log.Writer())
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(http.StatusOK) // must be last to force our Content-Type to be respected
 			w.Write(fileBytes)
 
-		} else if ext == "" {
-			path := filepath.Join(po.Source, uri+po.Extension)
+		} else if ext == ".html" && filepath.Base(ext)[0] != '_' {
+			path := filepath.Join(po.Source, uri[0:len(uri)-len(ext)]+po.Extension)
 
 			root, err := parseFile(path)
 			if err != nil {
@@ -120,13 +120,15 @@ func serve(po *processOptions, addr string) {
 				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
 				return
 			}
-			
+
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
 			w.WriteHeader(http.StatusOK)
 			w.Write(out.Bytes())
+		} else {
+			w.WriteHeader(http.StatusNotFound)
 		}
 	})
 

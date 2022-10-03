@@ -105,10 +105,12 @@ func processDir(src, dst string, po *processOptions) error {
 			}
 		} else {
 			ext := filepath.Ext(n)
-			if ext == po.Extension {
-				d := filepath.Join(dst, n[0:len(n)-len(po.Extension)]+".html")
-				if err := processFile(s, d, po); err != nil {
-					return err
+			if ext == po.Extension  {
+				if filepath.Base(n)[0] != '_' {
+					d := filepath.Join(dst, n[0:len(n)-len(po.Extension)]+".html")
+					if err := processFile(s, d, po); err != nil {
+						return err
+					}
 				}
 			} else {
 				if _, err := copyFile(s, d); err != nil {
@@ -149,6 +151,8 @@ func copyFile(src, dst string) (int64, error) {
 	nBytes, err := io.Copy(destination, source)
 	return nBytes, err
 }
+
+
 
 func processFile(src, dst string, po *processOptions) error {
 	log.Println("Processing " + src)
