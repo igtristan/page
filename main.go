@@ -105,10 +105,12 @@ func processDir(src, dst string, po *processOptions) error {
 			}
 		} else {
 			ext := filepath.Ext(n)
-			if ext == po.Extension {
-				d := filepath.Join(dst, n[0:len(n)-len(po.Extension)]+".html")
-				if err := processFile(s, d, po); err != nil {
-					return err
+			if ext == po.Extension  {
+				if filepath.Base(n)[0] != '_' {
+					d := filepath.Join(dst, n[0:len(n)-len(po.Extension)]+".html")
+					if err := processFile(s, d, po); err != nil {
+						return err
+					}
 				}
 			} else {
 				if _, err := copyFile(s, d); err != nil {
@@ -150,6 +152,8 @@ func copyFile(src, dst string) (int64, error) {
 	return nBytes, err
 }
 
+
+
 func processFile(src, dst string, po *processOptions) error {
 	log.Println("Processing " + src)
 	root, err := parseFile(src)
@@ -190,7 +194,7 @@ type FileScope struct {
 
 func (s *FileScope) NextClass() string {
 	s.Sequence++
-	return fmt.Sprintf("ix%v", s.Sequence)
+	return fmt.Sprintf("p%v", s.Sequence)
 }
 
 func (s *FileScope) AddCss(nodeType string, class string, subkey string, v string) {

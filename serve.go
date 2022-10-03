@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +23,11 @@ var placeholderPng []byte
 var placeholderJpg []byte
 
 func serve(po *processOptions, addr string) {
+
+	err2 := mime.AddExtensionType(".css", "text/css")
+	if err2 != nil {
+		log.Printf("Error in mime js %s", err2.Error())
+	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -45,7 +51,8 @@ func serve(po *processOptions, addr string) {
 
 		ext := filepath.Ext(uri)
 
-		if ext != "" {
+		if ext == "" {
+		} else if ext != ".html" {
 			var fileBytes []byte
 			f, err := po.ResolvePath(uri)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -53,13 +60,15 @@ func serve(po *processOptions, addr string) {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			} else if err != nil && errors.Is(err, os.ErrNotExist) {
-				// TODO add in something to decide whether to make placeholders or not
-				if ext == ".gif" {
-					fileBytes = placeholderGif
-				} else if ext == ".jpg" || ext == ".jpeg" {
-					fileBytes = placeholderJpg
-				} else if ext == ".png" {
-					fileBytes = placeholderPng
+
+				if po.UsePlaceholderImages {
+					if ext == ".gif" {
+						fileBytes = placeholderGif
+					} else if ext == ".jpg" || ext == ".jpeg" {
+						fileBytes = placeholderJpg
+					} else if ext == ".png" {
+						fileBytes = placeholderPng
+					}
 				}
 
 				if fileBytes == nil || !po.UsePlaceholderImages {
@@ -74,15 +83,24 @@ func serve(po *processOptions, addr string) {
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/octet-stream")
+
+			//mime.AddExtensionType(".css", "text/css; charset=utf-8")
+
+			log.Println("Serving " + uri + " extension: " + ext)
+			if ext == ".css" {
+				w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			} else {
+				w.Header().Set("Content Type", "application/octet-stream")
+			}
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
+			w.Header().Write(log.Writer())
+			w.WriteHeader(http.StatusOK) // must be last to force our Content-Type to be respected
 			w.Write(fileBytes)
 
-		} else if ext == "" {
-			path := filepath.Join(po.Source, uri+po.Extension)
+		} else if ext == ".html" && filepath.Base(ext)[0] != '_' {
+			path := filepath.Join(po.Source, uri[0:len(uri)-len(ext)]+po.Extension)
 
 			root, err := parseFile(path)
 			if err != nil {
@@ -103,11 +121,14 @@ func serve(po *processOptions, addr string) {
 				return
 			}
 
-			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			w.Header().Set("Pragma", "no-cache")
 			w.Header().Set("Expires", "0")
+			w.WriteHeader(http.StatusOK)
 			w.Write(out.Bytes())
+		} else {
+			w.WriteHeader(http.StatusNotFound)
 		}
 	})
 
