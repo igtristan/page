@@ -8,9 +8,6 @@ import (
 )
 
 
-type GlobalScope struct {
-
-}
 
 type processOptions struct {
 	clean       bool

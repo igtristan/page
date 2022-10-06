@@ -31,6 +31,8 @@ func serve(po *processOptions, addr string) {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+
+
 		uri := r.RequestURI
 		if strings.HasSuffix(uri, "/") {
 			uri = uri + "index"
@@ -46,6 +48,9 @@ func serve(po *processOptions, addr string) {
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
 		}
+
+		gs := NewGlobalScope()
+
 
 		// ResolvePath
 
@@ -111,7 +116,10 @@ func serve(po *processOptions, addr string) {
 
 			nodeState := &Scope{
 				FileScope: &FileScope{
+					Path: path,
+					GlobalScope: gs,
 					Options: po,
+					UniqueClass: &HtmlRenderingBuffer{},
 				},
 			}
 			out := &bytes.Buffer{}

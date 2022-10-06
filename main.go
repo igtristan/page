@@ -70,12 +70,15 @@ func main() {
 			panic(err)
 		}
 
+		gs := NewGlobalScope()
+
+
 		if fileInfo.IsDir() {
-			if err := processDir(po.Source, po.Destination, po); err != nil {
+			if err := processDir(gs, po.Source, po.Destination, po); err != nil {
 				panic(err)
 			}
 		} else {
-			if err := processFile(po.Source, po.Destination, po); err != nil {
+			if err := processFile(gs, po.Source, po.Destination, po); err != nil {
 				panic(err)
 			}
 		}
@@ -88,7 +91,7 @@ func main() {
 	}
 }
 
-func processDir(src, dst string, po *processOptions) error {
+func processDir(gs *GlobalScope, src, dst string, po *processOptions) error {
 
 	items, _ := ioutil.ReadDir(src)
 	for _, item := range items {
@@ -100,7 +103,7 @@ func processDir(src, dst string, po *processOptions) error {
 
 		s, d := filepath.Join(src, n), filepath.Join(dst, n)
 		if item.IsDir() {
-			if err := processDir(s, d, po); err != nil {
+			if err := processDir(gs, s, d, po); err != nil {
 				return err
 			}
 		} else {
@@ -108,7 +111,7 @@ func processDir(src, dst string, po *processOptions) error {
 			if ext == po.Extension  {
 				if filepath.Base(n)[0] != '_' {
 					d := filepath.Join(dst, n[0:len(n)-len(po.Extension)]+".html")
-					if err := processFile(s, d, po); err != nil {
+					if err := processFile(gs, s, d, po); err != nil {
 						return err
 					}
 				}
@@ -154,7 +157,7 @@ func copyFile(src, dst string) (int64, error) {
 
 
 
-func processFile(src, dst string, po *processOptions) error {
+func processFile(gs *GlobalScope, src, dst string, po *processOptions) error {
 	log.Println("Processing " + src)
 	root, err := parseFile(src)
 	if err != nil {
@@ -166,7 +169,7 @@ func processFile(src, dst string, po *processOptions) error {
 	}
 
 	nodeState := &Scope{
-		FileScope: &FileScope{Options: po},
+		FileScope: &FileScope{Path: src, Options: po, GlobalScope: gs, UniqueClass: &HtmlRenderingBuffer{}},
 	}
 	out := &bytes.Buffer{}
 
@@ -181,69 +184,29 @@ func processFile(src, dst string, po *processOptions) error {
 	return nil
 }
 
-type Scope struct {
-	tags      map[string]*Tag
-	FileScope *FileScope
-}
-
-type FileScope struct {
-	Sequence int
-	css      bytes.Buffer
-	Options  *processOptions
-}
-
-func (s *FileScope) NextClass() string {
-	s.Sequence++
-	return fmt.Sprintf("p%v", s.Sequence)
-}
-
-func (s *FileScope) AddCss(nodeType string, class string, subkey string, v string) {
-	s.css.WriteString(nodeType)
-	s.css.WriteByte('.')
-	s.css.WriteString(class)
-	//s.css.WriteByte(' ')
-	s.css.WriteString(subkey)
-	s.css.WriteString(" {")
-	s.css.WriteString(v)
-	s.css.WriteString("}\n")
-}
-
-func (s *FileScope) AddMediaCss(m string, nodeType string, class string, subkey string, v string) {
-
-	s.css.WriteString("@media (" + m + "){")
-	s.AddCss(nodeType, class, subkey, v)
-	s.css.WriteString("}")
-
-}
-
-func (s *Scope) CreateChild() *Scope {
-	next := &Scope{
-		tags: make(map[string]*Tag, len(s.tags)),
-	}
-	for k, v := range s.tags {
-		next.tags[k] = v
-	}
-	next.FileScope = s.FileScope
-	return next
-}
 
 func formatRoot(scope *Scope, n *Tag, out *bytes.Buffer) error {
 	if n.Type != "*" {
 		return errors.New("expecting root tag")
 	}
 
-	return format(scope, n.Children[0], n, out)
+	for _, c := range n.Children {
+		if err := format(scope, c, n, out); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 
-	imports := n.GetChildrenWithType("import")
+	//imports := n.GetChildrenWithType("import")
 	heads := n.GetChildrenWithType("head")
 	pages := n.GetChildrenWithType("body")
 
-	if len(imports) > 1 {
-		return errors.New("expecting at most 1 import")
-	}
+	//if len(imports) > 1 {
+	//	return errors.New("expecting at most 1 import")
+	//}
 	if len(heads) > 1 {
 		return errors.New("expecting at most 1 head")
 	}
@@ -256,17 +219,17 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 	// TODO unhardcode en here
 	out.WriteString("<!doctype html>\n<html lang=\"en\">\n")
 	out.WriteString("<head>")
-	for _, imp := range imports {
-		for _, sub := range imp.Children {
-			switch sub.Type {
-			case "core.tag":
-				if len(sub.Children) == 0 {
-					return fmt.Errorf("Tag is empty: %v", sub.Attributes["name"])
-				}
-				scope.tags[sub.Attributes["name"]] = sub.Children[0]
-			}
-		}
-	}
+	//for _, imp := range imports {
+	//	for _, sub := range imp.Children {
+	//		switch sub.Type {
+	//		case "core.tag":
+	//			if len(sub.Children) == 0 {
+	//				return fmt.Errorf("Tag is empty: %v", sub.Attributes["name"])
+	//			}
+	//			scope.tags[sub.Attributes["name"]] = sub.Children[0]
+	//		}
+	//	}
+	//}
 	for _, head := range heads {
 		if err := format(scope, head, nil, out); err != nil {
 			return err
@@ -280,9 +243,9 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 		}
 	}
 
-	if scope.FileScope.css.Len() > 0 {
+	if scope.FileScope.UniqueClass.css.Len() > 0 {
 		out.WriteString("<style>")
-		out.Write(scope.FileScope.css.Bytes())
+		out.Write(scope.FileScope.UniqueClass.css.Bytes())
 		out.WriteString("</style>")
 	}
 	out.WriteString("</head>")
@@ -420,13 +383,53 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 		if err := formatCss(nodeState, parent.Class, n.Attributes["media"], n.Text, out); err != nil {
 			return fmt.Errorf("failed to parse css: %s err: %w", n.Text, err)
 		}
+	} else if n.Type == "core.include" {
+
+		if path, ok := n.Attributes["path"]; ok {
+			gs := nodeState.GetGlobalScope()
+
+			p := nodeState.FileScope.ResolvePath(path)
+			if found := gs.includes[p]; found == nil {
+				tag, err := parseFile(p)
+				if err != nil {
+					return err
+				}
+
+				gs.includes[p] = &IncludeFile{
+					path: p,
+					tags: tag,
+				}
+			}
+
+			imp := gs.includes[p]
+
+			scope := nodeState.CreateFileChild(imp.path)
+
+			cp, err := DeepCopy(imp.tags, []*Tag{}, nil, nil, false)
+			if err != nil {
+				return err
+			}
+
+
+			// This is a root object so no need to output the actual root
+			for _, c := range cp.Children {
+				if err := format(scope, c, n, out); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}
+
+		return nil
 	} else if n.Type == "core.tag" {
 		if len(n.Children) == 0 {
 			return fmt.Errorf("Tag is empty: %v", n.Attributes["name"])
 		}
 		nodeState.tags[n.Attributes["name"]] = n.Children[0]
 	} else if n.Type == "comment" {
-		// do nothing
+		// NO output
+		return nil
 	} else if n.Type == "text" {
 		out.WriteString(n.Text)
 	} else if n.Type == "head" {
@@ -676,11 +679,11 @@ func formatCss(state *Scope, class string, media string, text string, out *bytes
 	}
 
 	if media != "" {
-		fs.css.WriteString("@media (" + media + ") {")
+		fs.UniqueClass.css.WriteString("@media (" + media + ") {")
 	}
-	fs.css.WriteString(encoded.String())
+	fs.UniqueClass.css.WriteString(encoded.String())
 	if media != "" {
-		fs.css.WriteString("}")
+		fs.UniqueClass.css.WriteString("}")
 	}
 	return nil
 
