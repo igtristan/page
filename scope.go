@@ -91,7 +91,7 @@ func (s *FileScope) AddMediaCss(m string, nodeType string, class string, subkey 
 }
 
 func (s *FileScope) ResolvePath(path string) string {
-	dir := filepath.Base(s.Path)
+	dir := filepath.Dir(s.Path)
 	return filepath.Join(dir, path)
 }
 

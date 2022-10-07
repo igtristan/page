@@ -110,11 +110,12 @@ func serve(po *processOptions, addr string) {
 			root, err := parseFile(path)
 			if err != nil {
 				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
+				w.Write([]byte("<h1>Parsing Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
 				return
 			}
 
 			nodeState := &Scope{
+				tags: make(map[string]*Tag),
 				FileScope: &FileScope{
 					Path: path,
 					GlobalScope: gs,
@@ -125,7 +126,7 @@ func serve(po *processOptions, addr string) {
 			out := &bytes.Buffer{}
 			if err = formatRoot(nodeState, root, out); err != nil {
 				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
+				w.Write([]byte("<h1>Compilation Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
 				return
 			}
 

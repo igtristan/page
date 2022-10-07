@@ -169,6 +169,7 @@ func processFile(gs *GlobalScope, src, dst string, po *processOptions) error {
 	}
 
 	nodeState := &Scope{
+		tags: make(map[string]*Tag),
 		FileScope: &FileScope{Path: src, Options: po, GlobalScope: gs, UniqueClass: &HtmlRenderingBuffer{}},
 	}
 	out := &bytes.Buffer{}
@@ -214,7 +215,7 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 		return errors.New("expecting at most 1 pages")
 	}
 
-	scope.tags = make(map[string]*Tag)
+
 
 	// TODO unhardcode en here
 	out.WriteString("<!doctype html>\n<html lang=\"en\">\n")
@@ -385,7 +386,9 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 		}
 	} else if n.Type == "core.include" {
 
-		if path, ok := n.Attributes["path"]; ok {
+		if path, ok := n.Attributes["page"]; !ok {
+			return errors.New("Expecting page in core.include tag")
+		} else {
 			gs := nodeState.GetGlobalScope()
 
 			p := nodeState.FileScope.ResolvePath(path)
@@ -416,6 +419,11 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 				if err := format(scope, c, n, out); err != nil {
 					return err
 				}
+			}
+
+			// copy over any tags from the include
+			for k,v := range scope.tags {
+				nodeState.tags[k] = v
 			}
 
 			return nil
