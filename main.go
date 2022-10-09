@@ -203,34 +203,17 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 
 	//imports := n.GetChildrenWithType("import")
 	heads := n.GetChildrenWithType("head")
-	pages := n.GetChildrenWithType("body")
+	bodies := n.GetChildrenWithType("body")
 
-	//if len(imports) > 1 {
-	//	return errors.New("expecting at most 1 import")
-	//}
-	if len(heads) > 1 {
-		return errors.New("expecting at most 1 head")
+	lang, ok := n.Attributes["lang"]
+	if !ok || len(lang) == 0 {
+		lang = "en"
 	}
-	if len(pages) > 1 {
-		return errors.New("expecting at most 1 pages")
-	}
-
-
 
 	// TODO unhardcode en here
-	out.WriteString("<!doctype html>\n<html lang=\"en\">\n")
+	out.WriteString("<!doctype html>\n<html lang=\"" + lang + "\">\n")
 	out.WriteString("<head>")
-	//for _, imp := range imports {
-	//	for _, sub := range imp.Children {
-	//		switch sub.Type {
-	//		case "core.tag":
-	//			if len(sub.Children) == 0 {
-	//				return fmt.Errorf("Tag is empty: %v", sub.Attributes["name"])
-	//			}
-	//			scope.tags[sub.Attributes["name"]] = sub.Children[0]
-	//		}
-	//	}
-	//}
+
 	for _, head := range heads {
 		if err := format(scope, head, nil, out); err != nil {
 			return err
@@ -238,8 +221,8 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 	}
 
 	out2 := bytes.Buffer{}
-	for _, page := range pages {
-		if err := format(scope.CreateChild(), page, nil, &out2); err != nil {
+	for _, body := range bodies {
+		if err := format(scope.CreateChild(), body, nil, &out2); err != nil {
 			return err
 		}
 	}
@@ -386,6 +369,9 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 		}
 	} else if n.Type == "core.include" {
 
+		// TODO disallow specifying prefixes in the names of tags
+		// TODO cull down the list of tags, and allow changing of the prefix
+
 		if path, ok := n.Attributes["page"]; !ok {
 			return errors.New("Expecting page in core.include tag")
 		} else {
@@ -425,14 +411,14 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 			for k,v := range scope.tags {
 				nodeState.tags[k] = v
 			}
-
-			return nil
 		}
 
 		return nil
 	} else if n.Type == "core.tag" {
 		if len(n.Children) == 0 {
 			return fmt.Errorf("Tag is empty: %v", n.Attributes["name"])
+		} else if strings.Contains(n.Attributes["name"], ".") {
+			return fmt.Errorf("Tag name may not contain '.' " + n.Attributes["name"])
 		}
 		nodeState.tags[n.Attributes["name"]] = n.Children[0]
 	} else if n.Type == "comment" {

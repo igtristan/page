@@ -107,35 +107,10 @@ func serve(po *processOptions, addr string) {
 		} else if ext == ".html" && filepath.Base(ext)[0] != '_' {
 			path := filepath.Join(po.Source, uri[0:len(uri)-len(ext)]+po.Extension)
 
-			root, err := parseFile(path)
-			if err != nil {
-				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Parsing Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
-				return
-			}
-
-			nodeState := &Scope{
-				tags: make(map[string]*Tag),
-				FileScope: &FileScope{
-					Path: path,
-					GlobalScope: gs,
-					Options: po,
-					UniqueClass: &HtmlRenderingBuffer{},
-				},
-			}
-			out := &bytes.Buffer{}
-			if err = formatRoot(nodeState, root, out); err != nil {
-				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Compilation Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
-				return
-			}
-
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Expires", "0")
-			w.WriteHeader(http.StatusOK)
-			w.Write(out.Bytes())
+			serveFile(path, gs, po,  w)
+		} else if ext == "" {
+			path := filepath.Join(po.Source,uri, "index.html")
+			serveFile(path, gs, po,  w)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -144,4 +119,37 @@ func serve(po *processOptions, addr string) {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func serveFile(path string, gs *GlobalScope, po *processOptions, w http.ResponseWriter) {
+
+	root, err := parseFile(path)
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		w.Write([]byte("<h1>Parsing Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
+		return
+	}
+
+	nodeState := &Scope{
+		tags: make(map[string]*Tag),
+		FileScope: &FileScope{
+			Path: path,
+			GlobalScope: gs,
+			Options: po,
+			UniqueClass: &HtmlRenderingBuffer{},
+		},
+	}
+	out := &bytes.Buffer{}
+	if err = formatRoot(nodeState, root, out); err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		w.Write([]byte("<h1>Compilation Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.WriteHeader(http.StatusOK)
+	w.Write(out.Bytes())
 }
