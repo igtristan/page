@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"errors"
-	"io/ioutil"
 	"log"
 	"mime"
 	"net/http"
@@ -31,10 +30,9 @@ func serve(po *processOptions, addr string) {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+
+
 		uri := r.RequestURI
-		if strings.HasSuffix(uri, "/") {
-			uri = uri + "index"
-		}
 
 		if strings.Contains(uri, "..") {
 			http.Error(w, "Invalid path", http.StatusNotFound)
@@ -47,12 +45,14 @@ func serve(po *processOptions, addr string) {
 			return
 		}
 
+		gs := NewGlobalScope()
+
+
 		// ResolvePath
 
 		ext := filepath.Ext(uri)
 
-		if ext == "" {
-		} else if ext != ".html" {
+		if ext != ".html" && ext != "" {
 			var fileBytes []byte
 			f, err := po.ResolvePath(uri)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -77,14 +77,11 @@ func serve(po *processOptions, addr string) {
 					return
 				}
 
-			} else if fileBytes, err = ioutil.ReadFile(f); err != nil {
+			} else if fileBytes, err = os.ReadFile(f); err != nil {
 				log.Println(err.Error())
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-
-
-			//mime.AddExtensionType(".css", "text/css; charset=utf-8")
 
 			log.Println("Serving " + uri + " extension: " + ext)
 			if ext == ".css" {
@@ -101,32 +98,10 @@ func serve(po *processOptions, addr string) {
 
 		} else if ext == ".html" && filepath.Base(ext)[0] != '_' {
 			path := filepath.Join(po.Source, uri[0:len(uri)-len(ext)]+po.Extension)
-
-			root, err := parseFile(path)
-			if err != nil {
-				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
-				return
-			}
-
-			nodeState := &Scope{
-				FileScope: &FileScope{
-					Options: po,
-				},
-			}
-			out := &bytes.Buffer{}
-			if err = formatRoot(nodeState, root, out); err != nil {
-				http.Error(w, "Internal Error", http.StatusInternalServerError)
-				w.Write([]byte("<h1>Compilation Failed</h1><p>" + err.Error() + "</p>"))
-				return
-			}
-
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-			w.Header().Set("Pragma", "no-cache")
-			w.Header().Set("Expires", "0")
-			w.WriteHeader(http.StatusOK)
-			w.Write(out.Bytes())
+			serveFile(path, gs, po,  w)
+		} else if ext == "" {
+			path := filepath.Join(po.Source,uri, "index.page")
+			serveFile(path, gs, po,  w)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -135,4 +110,37 @@ func serve(po *processOptions, addr string) {
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func serveFile(path string, gs *GlobalScope, po *processOptions, w http.ResponseWriter) {
+
+	root, err := parseFile(path)
+	if err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		w.Write([]byte("<h1>Parsing Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
+		return
+	}
+
+	nodeState := &Scope{
+		tags: make(map[string]*Tag),
+		FileScope: &FileScope{
+			Path: path,
+			GlobalScope: gs,
+			Options: po,
+			UniqueClass: &HtmlRenderingBuffer{},
+		},
+	}
+	out := &bytes.Buffer{}
+	if err = formatRoot(nodeState, root, out); err != nil {
+		http.Error(w, "Internal Error", http.StatusInternalServerError)
+		w.Write([]byte("<h1>Compilation Failed</h1><p>" + path + "</p><p>" + err.Error() + "</p>"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.WriteHeader(http.StatusOK)
+	w.Write(out.Bytes())
 }
