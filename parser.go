@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 )
 
 type Tag struct {
@@ -51,10 +51,15 @@ func isLowerAlphaNumDashDot(c byte) bool {
 	return ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '-' || c == '.'
 }
 func parseFile(path string) (*Tag, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+
+	return parseFileData(path, data)
+}
+
+func parseFileData(path string, data []byte) (*Tag, error) {
 
 	br := &Reader{
 		data: data,

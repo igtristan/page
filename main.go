@@ -247,7 +247,30 @@ func replaceSubstitutions(v string, attrs map[string]string, consumed map[string
 	return v, nil
 }
 
-func DeepCopy(t *Tag, children []*Tag, attrs map[string]string, consumed map[string]bool, primary bool) (dst *Tag, err error) {
+
+func DeepCopy(t *Tag) (dst *Tag, err error) {
+	dst = &Tag{
+		Type:       t.Type,
+		Attributes: make(map[string]string, len(t.Attributes)),
+		Children:   make([]*Tag, 0, len(t.Children)),
+	}
+
+	for k, v := range t.Attributes {
+		dst.Attributes[k] = v
+	}
+
+	for _, v := range t.Children {
+		cc, err := DeepCopy(v)
+		if err != nil {
+			return nil, err
+		}
+		dst.Children = append(dst.Children, cc)
+	}
+
+	return dst, nil
+}
+
+func DeepCopyAndApplySubstitutions(t *Tag, children []*Tag, attrs map[string]string, consumed map[string]bool, primary bool) (dst *Tag, err error) {
 
 	dst = &Tag{
 		Type:       t.Type,
@@ -275,7 +298,7 @@ func DeepCopy(t *Tag, children []*Tag, attrs map[string]string, consumed map[str
 			}
 			continue
 		}
-		cc, err := DeepCopy(v, children, attrs, consumed, false)
+		cc, err := DeepCopyAndApplySubstitutions(v, children, attrs, consumed, false)
 		if err != nil {
 			return nil, err
 		}
@@ -355,7 +378,7 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 
 	if template, ok := nodeState.tags[n.Type]; ok {
 		consumed := map[string]bool{}
-		cp, err := DeepCopy(template, n.Children, n.Attributes, consumed, true)
+		cp, err := DeepCopyAndApplySubstitutions(template, n.Children, n.Attributes, consumed, true)
 		if err != nil {
 			return err
 		}
@@ -394,11 +417,10 @@ func format(nodeState *Scope, n *Tag, parent *Tag, out *bytes.Buffer) error {
 
 			scope := nodeState.CreateFileChild(imp.path)
 
-			cp, err := DeepCopy(imp.tags, []*Tag{}, nil, nil, false)
+			cp, err := DeepCopy(imp.tags)
 			if err != nil {
 				return err
 			}
-
 
 			// This is a root object so no need to output the actual root
 			for _, c := range cp.Children {

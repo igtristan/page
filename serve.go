@@ -4,7 +4,6 @@ import (
 	"bytes"
 	_ "embed"
 	"errors"
-	"io/ioutil"
 	"log"
 	"mime"
 	"net/http"
@@ -82,14 +81,11 @@ func serve(po *processOptions, addr string) {
 					return
 				}
 
-			} else if fileBytes, err = ioutil.ReadFile(f); err != nil {
+			} else if fileBytes, err = os.ReadFile(f); err != nil {
 				log.Println(err.Error())
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-
-
-			//mime.AddExtensionType(".css", "text/css; charset=utf-8")
 
 			log.Println("Serving " + uri + " extension: " + ext)
 			if ext == ".css" {

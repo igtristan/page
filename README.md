@@ -57,6 +57,17 @@ In order for the site generation to work correctly the root of your document mus
 </core.html>
 ```
 
+### <core.include>
+
+Include another page and tags defined within it in the current page.
+Note pages that start with "_" will not be served or built.  They may only be used with the include directive.
+
+```
+<core.include page="_template.page" />
+
+page = unix disk path to page
+```
+
 ### <core.css>
 
 Create css that is scoped to the containing element.
