@@ -8,7 +8,6 @@ import (
 )
 
 
-
 type processOptions struct {
 	clean       bool
 	Source      string

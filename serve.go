@@ -33,9 +33,6 @@ func serve(po *processOptions, addr string) {
 
 
 		uri := r.RequestURI
-		if strings.HasSuffix(uri, "/") {
-			uri = uri + "index"
-		}
 
 		if strings.Contains(uri, "..") {
 			http.Error(w, "Invalid path", http.StatusNotFound)
@@ -55,8 +52,7 @@ func serve(po *processOptions, addr string) {
 
 		ext := filepath.Ext(uri)
 
-		if ext == "" {
-		} else if ext != ".html" {
+		if ext != ".html" && ext != "" {
 			var fileBytes []byte
 			f, err := po.ResolvePath(uri)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -102,10 +98,9 @@ func serve(po *processOptions, addr string) {
 
 		} else if ext == ".html" && filepath.Base(ext)[0] != '_' {
 			path := filepath.Join(po.Source, uri[0:len(uri)-len(ext)]+po.Extension)
-
 			serveFile(path, gs, po,  w)
 		} else if ext == "" {
-			path := filepath.Join(po.Source,uri, "index.html")
+			path := filepath.Join(po.Source,uri, "index.page")
 			serveFile(path, gs, po,  w)
 		} else {
 			w.WriteHeader(http.StatusNotFound)

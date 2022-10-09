@@ -157,6 +157,7 @@ func copyFile(src, dst string) (int64, error) {
 
 
 
+
 func processFile(gs *GlobalScope, src, dst string, po *processOptions) error {
 	log.Println("Processing " + src)
 	root, err := parseFile(src)
@@ -185,7 +186,6 @@ func processFile(gs *GlobalScope, src, dst string, po *processOptions) error {
 	return nil
 }
 
-
 func formatRoot(scope *Scope, n *Tag, out *bytes.Buffer) error {
 	if n.Type != "*" {
 		return errors.New("expecting root tag")
@@ -210,7 +210,6 @@ func formatCoreHtml(scope *Scope, n *Tag, out *bytes.Buffer) error {
 		lang = "en"
 	}
 
-	// TODO unhardcode en here
 	out.WriteString("<!doctype html>\n<html lang=\"" + lang + "\">\n")
 	out.WriteString("<head>")
 
